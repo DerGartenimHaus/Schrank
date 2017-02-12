@@ -1,0 +1,589 @@
+#include <Wire.h> //BME280
+#include <SPI.h> //BME280
+#include <Adafruit_Sensor.h> //BME280
+#include <Adafruit_BME280.h> //BME280
+#include <DS3231.h> //RTC
+#include "Adafruit_GFX.h"
+#include "Adafruit_ILI9341.h"
+
+#define SEALEVELPRESSURE_HPA (1013.25) //Standart NN
+
+// LCD
+#define TFT_DC 49
+#define TFT_CS 48
+#define TFT_RST 46
+#define LCDROTATION 3
+
+
+int Wassersensor = 0;
+int Wassersensorwert = 0;
+int Wassersensorwert1 = 0;
+int Wassersensorwert2 = 0;
+int Balkenfarbe = 0;
+int Poti1 = 0;
+int Poti1wert = 0;
+int Poti2 = 0;
+int Poti2wert = 0;
+int Balkenfarbe1 = 0;
+int Balkenfarbe2 = 0;
+int Balkenfarbe3 = 0;
+int Balkenfarbe4 = 0;
+/*
+int Balkenfarbe5 = 0;
+int Balkenfarbe6 = 0;
+int Balkenfarbe7 = 0;
+int Balkenfarbe8 = 0;
+*/
+int Balkenfarbe11 = 0;
+int RelaisWert1 = 0;
+int RelaisWert2 = 0;
+int RelaisWert3 = 0;
+int RelaisWert4 = 0;
+/*
+int RelaisWert5 = 0;
+int RelaisWert6 = 0;
+int RelaisWert7 = 0;
+int RelaisWert8 = 0;
+*/
+int Relais1 = 31;
+int Relais2 = 33;
+int Relais3 = 35;
+int Relais4 = 37;
+/* 
+int Relais5 = 39;
+int Relais6 = 41;
+int Relais7 = 43;
+int Relais8 = 45;
+*/
+int Tuer = 8;
+int LEDunten = 26;
+int Luefter = 0;
+int Stunde = 0;
+
+long Uhrzeit = 0;
+long Datum = 0;
+long Temperatur = 0;
+long Luftfeuchte = 0;
+long Luftdruck = 0;
+
+unsigned long previousMillis = 0;        // will store last time LED was updated
+const long interval = 998;           // interval at which to blink (milliseconds)
+
+Time t;
+
+DS3231  rtc(SDA, SCL); // Init the DS3231 using the hardware interface
+
+Adafruit_BME280 bme; // I2C BME280
+
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println(F("BME280 test"));
+
+  if (!bme.begin()) {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    while (1);
+  }
+
+  rtc.begin();
+
+  tft.begin(); //Start Display
+  tft.setRotation(LCDROTATION); //Display Orientierung Quer
+  tft.fillScreen(ILI9341_BLACK); //Display schwarz füllen
+
+
+  pinMode(Relais1, OUTPUT);
+  pinMode(Relais2, OUTPUT);
+  pinMode(Relais3, OUTPUT);
+  pinMode(Relais4, OUTPUT);
+  /*
+  pinMode(Relais5, OUTPUT);
+  pinMode(Relais6, OUTPUT);
+  pinMode(Relais7, OUTPUT);
+  pinMode(Relais8, OUTPUT);
+  */
+
+  pinMode(LEDunten, INPUT);
+  pinMode(Tuer, INPUT);
+
+}
+
+void loop() {
+
+  Poti1 = analogRead(A1);
+  Poti1wert = map(Poti1, 0, 1000, 6, 9);
+  Poti2 = analogRead(A2);
+  Poti2wert = map(Poti2, 0, 950, 19, 24);
+
+  unsigned long currentMillis = millis();  //Nur ca. alle 1 sec. abfragen
+  
+  if (currentMillis - previousMillis >= interval) {
+  // save the last time you blinked the LED
+  previousMillis = currentMillis;
+
+    Uhrzeit = rtc.getTimeStr();
+    Datum = rtc.getDateStr();
+    Temperatur = bme.readTemperature();
+    Luftfeuchte = bme.readHumidity();
+    Luftdruck = bme.readPressure() / 100.0F;
+    t = rtc.getTime();
+    Stunde = t.hour, DEC;
+    
+  }
+  
+
+  Wassersensor = analogRead(A0);
+  Wassersensorwert = map(Wassersensor, 0, 950, 0, 214);
+
+  
+
+  Luefter = digitalRead(24);
+  Tuer = digitalRead(8);
+  LEDunten = digitalRead(26);
+
+  if (Luefter == HIGH)
+  {
+    digitalWrite(Relais1, HIGH); // do Thing A
+  }
+  else
+  {
+    digitalWrite(Relais1, LOW); //Betrieb(); // do Thing C
+  }
+
+
+  if (Tuer == LOW)
+  {
+    Neon(); // do Thing A
+  }
+  else
+  {
+    Betrieb(); // do Thing C
+  }
+
+
+  Display_Daten(); //Display mit Daten füllen
+
+  // Wait one second before repeating :)
+  //delay (800);
+
+}
+
+
+unsigned long Betrieb() { //normaler betrieb
+  
+if (Stunde >= Poti1wert && Stunde < Poti2wert)
+    {
+      LED(); // do Thing A
+    }
+    else
+    {
+      Nacht(); // do Thing C
+    }
+
+  } 
+
+unsigned long LED() { //Auswahl LEDs
+    if (LEDunten == HIGH)
+    {
+      LED1_2(); // do Thing A
+    }
+    else
+    {
+      LED1();
+    }
+}
+
+unsigned long Nacht() { //Nacht - Licht aus
+
+  //digitalWrite(RelaisWert1, HIGH);
+  digitalWrite(Relais2, LOW);
+  digitalWrite(Relais3, LOW);
+  digitalWrite(Relais4, LOW);
+  /*
+  digitalWrite(Relais5, LOW);
+  digitalWrite(Relais6, LOW);
+  digitalWrite(Relais7, LOW);
+  digitalWrite(Relais8, LOW);
+  */
+}
+
+unsigned long Neon() { //Tür auf
+
+  //digitalWrite(RelaisWert1, HIGH);
+  digitalWrite(Relais2, HIGH);
+  digitalWrite(Relais3, LOW);
+  digitalWrite(Relais4, LOW);
+  /*
+  digitalWrite(Relais5, LOW);
+  digitalWrite(Relais6, LOW);
+  digitalWrite(Relais7, LOW);
+  digitalWrite(Relais8, LOW);
+  */
+}
+
+unsigned long LED1() { //LED1 oben
+
+  //digitalWrite(RelaisWert1, LOW);
+  digitalWrite(Relais2, LOW);
+  digitalWrite(Relais3, HIGH);
+  digitalWrite(Relais4, LOW);
+  /*
+  digitalWrite(Relais5, LOW);
+  digitalWrite(Relais6, LOW);
+  digitalWrite(Relais7, LOW);
+  digitalWrite(Relais8, LOW);
+  */
+}
+
+unsigned long LED1_2() { //LED1-2 alle LEDs
+
+  //digitalWrite(RelaisWert1, HIGH);
+  digitalWrite(Relais2, LOW);
+  digitalWrite(Relais3, HIGH);
+  digitalWrite(Relais4, HIGH);
+  /* 
+  digitalWrite(Relais5, LOW);
+  digitalWrite(Relais6, LOW);
+  digitalWrite(Relais7, LOW);
+  digitalWrite(Relais8, LOW);
+  */
+}
+
+unsigned long Display_Daten() { //Display visualisierung
+
+  unsigned long start = micros();
+  tft.setCursor(1, 1);
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(3);
+  tft.println("Schrank Parameter");
+
+  //tft.drawRect(0, 0, 320, 240, ILI9341_WHITE); // Rahmen Punkte- oben Links, unten Rechts
+
+  tft.setCursor(1, 40); // Uhrzeit
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(3);
+  tft.println(Uhrzeit);
+
+  tft.setCursor(150, 40); // Datum
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(2);
+  tft.println(Datum);
+
+  tft.setCursor(1, 80); // Temp.
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(3);
+  tft.println(Temperatur);
+  tft.setCursor(92, 76); // Überschrift Temp.
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(2);
+  tft.println("o");
+  tft.setCursor(103, 80); // Überschrift Temp.
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(3);
+  tft.println("C");
+
+  tft.setCursor(150, 65); // Luftfeuchtigkeit
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(2);
+  tft.println(Luftfeuchte);
+  tft.setCursor(234, 65); // Luftfeuchtigkeit
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(2);
+  tft.println("%");
+
+  tft.setCursor(150, 90); // Luftdruck
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(2);
+  tft.println(Luftdruck);
+  tft.setCursor(234, 90); // Luftdruck
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(2);
+  tft.println("hPa");
+
+
+  tft.setCursor(1, 115); // Überschrift Beleuchtung
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("Beleuchtung Std.");
+
+  tft.drawRect(0, 135, 35, 30, ILI9341_WHITE); // Einschaltzeit LED
+  tft.setCursor(2, 126); // Überschrift an
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("an");
+  tft.setCursor(13, 140); // Überschrift an
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);  tft.setTextSize(3);
+  tft.println(Poti1wert);
+
+  tft.drawRect(40, 135, 40, 30, ILI9341_WHITE); // Dauer LED
+  tft.setCursor(42, 126); // Überschrift dauer
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("dauer");
+  tft.setCursor(42, 140); // Überschrift an
+  tft.setTextColor(ILI9341_YELLOW, ILI9341_BLACK);
+  tft.setTextSize(3);
+  tft.println(Poti2wert - Poti1wert);
+
+  tft.drawRect(85, 135, 40, 30, ILI9341_WHITE); // Ausschaltzeit LED
+  tft.setCursor(87, 126); // Überschrift aus
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("aus");
+  tft.setCursor(88, 140); // Überschrift an
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setTextSize(3);
+  tft.println(Poti2wert);
+
+  tft.setCursor(150, 115); // Überschrift Schaltzustand
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("Schaltzustand");
+
+  tft.drawRect(150, 135, 35, 30, ILI9341_WHITE); // Zustand LED1
+  tft.setCursor(153, 126); // Überschrift LED1
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("LED1");
+  
+  RelaisWert3 = digitalRead(Relais3);
+  if (RelaisWert3 != HIGH)
+  {
+    Balkenfarbe3 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe3 = ILI9341_GREEN; // do Thing C
+  }
+  tft.fillRect(151, 136, 33, 28, Balkenfarbe3);
+
+  tft.drawRect(190, 135, 35, 30, ILI9341_WHITE); // Zustand LED2
+  tft.setCursor(193, 126); // Überschrift LED2
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("LED2");
+
+  RelaisWert4 = digitalRead(Relais4);
+  if (RelaisWert4 != HIGH)
+  {
+    Balkenfarbe4 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe4 = ILI9341_GREEN; // do Thing C
+  }
+  tft.fillRect(191, 136, 33, 28, Balkenfarbe4);
+
+  tft.drawRect(230, 135, 35, 30, ILI9341_WHITE); // Zustand Neon
+  tft.setCursor(233, 126); // Überschrift Neon
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(1);
+  tft.println("Neon");
+  
+  if (Tuer == HIGH)
+  {
+    Balkenfarbe11 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe11 = ILI9341_GREEN; // do Thing C
+  }
+  tft.fillRect(231, 136, 33, 28, Balkenfarbe11);
+
+  tft.setCursor(1, 170); // Überschrift Relais
+  tft.setTextColor(ILI9341_WHITE);  tft.setTextSize(2);
+  tft.println("Relais");
+
+  RelaisWert1 = digitalRead(Relais1);
+  if (RelaisWert1 == LOW)
+  {
+    Balkenfarbe1 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe1 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(0, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 1
+  tft.fillRect(1, 211, 28, 28, Balkenfarbe1);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(10, 190);
+  tft.println("1");
+
+  RelaisWert2 = digitalRead(Relais2);
+  if (RelaisWert2 != HIGH)
+  {
+    Balkenfarbe2 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe2 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(32, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 2
+  tft.fillRect(33, 211, 28, 28, Balkenfarbe2);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(42, 190);
+  tft.println("2");
+  
+/* // schon für LED1 defeniert
+  RelaisWert3 = digitalRead(Relais3);
+  if (RelaisWert3 != HIGH)
+  {
+    Balkenfarbe3 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe3 = ILI9341_GREEN; // do Thing C
+  }
+   */
+  tft.drawRect(64, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 3
+  tft.fillRect(65, 211, 28, 28, Balkenfarbe3);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(74, 190);
+  tft.println("3");
+
+/* //schon für LED2 defeniert
+  RelaisWert4 = digitalRead(Relais4);
+  if (RelaisWert4 != HIGH)
+  {
+    Balkenfarbe4 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe4 = ILI9341_GREEN; // do Thing C
+  }
+*/
+  tft.drawRect(96, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 4
+  tft.fillRect(97, 211, 28, 28, Balkenfarbe4);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(106, 190);
+  tft.println("4");
+/*
+  RelaisWert5 = digitalRead(Relais5);
+  if (RelaisWert5 != HIGH)
+  {
+    Balkenfarbe5 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe5 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(128, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 5
+  tft.fillRect(129, 211, 28, 28, Balkenfarbe5);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(138, 190);
+  tft.println("5");
+
+  RelaisWert6 = digitalRead(Relais6);
+  if (RelaisWert6 != HIGH)
+  {
+    Balkenfarbe6 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe6 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(160, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 6
+  tft.fillRect(161, 211, 28, 28, Balkenfarbe6);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(170, 190);
+  tft.println("6");
+
+  RelaisWert7 = digitalRead(Relais7);
+  if (RelaisWert7 != HIGH)
+  {
+    Balkenfarbe7 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe7 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(192, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 7
+  tft.fillRect(193, 211, 28, 28, Balkenfarbe7);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(202, 190);
+  tft.println("7");
+
+  RelaisWert8 = digitalRead(Relais8);
+  if (RelaisWert8 != HIGH)
+  {
+    Balkenfarbe8 = ILI9341_RED; // do Thing A
+  }
+  else
+  {
+    Balkenfarbe8 = ILI9341_GREEN; // do Thing C
+  }
+  tft.drawRect(224, 210, 30, 30, ILI9341_WHITE); // Schaltzustand Relais 8
+  tft.fillRect(225, 211, 28, 28, Balkenfarbe8);
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setCursor(234, 190);
+  tft.println("8");
+*/
+  tft.drawRect(290, 25, 30, 215, ILI9341_WHITE); // Bodenfeuchtigkeitsfueller + Senkrechte beschriftung
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 40);
+  tft.println("B");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 55);
+  tft.println("o");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 70);
+  tft.println("d");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 85);
+  tft.println("e");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 100);
+  tft.println("n");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 115);
+  tft.println("f");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 130);
+  tft.println("e");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 145);
+  tft.println("u");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 160);
+  tft.println("c");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 175);
+  tft.println("h");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 190);
+  tft.println("t");
+  tft.setTextSize(2);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+  tft.setCursor(275, 205);
+  tft.println("e");
+
+  Wassersensorwert1 = 213;
+  Wassersensorwert1 -= Wassersensorwert;
+  Wassersensorwert2 = 26;
+  Wassersensorwert2 += Wassersensorwert1;
+
+  // the sensor value description
+  // 0  ~300     dry soil
+  // 300~700     humid soil
+  // 700~950     in water
+
+  if (Wassersensor < 300)
+  {
+    Balkenfarbe = ILI9341_RED; // do Thing A
+  }
+  else if (Wassersensor >= 500)
+  {
+    Balkenfarbe = ILI9341_GREEN; // do Thing B
+  }
+  else
+  {
+    Balkenfarbe = ILI9341_YELLOW; // do Thing C
+  }
+
+  tft.fillRect(291, Wassersensorwert2, 28, Wassersensorwert, Balkenfarbe); // Bodenfeuchtigkeitsfueller (291,Wassersensorwert,28,239,ILI9341_WHITE) Balken wieder Schwartz machen!
+  tft.fillRect(291, 26, 28, Wassersensorwert1, ILI9341_BLACK);
+
+
+}
